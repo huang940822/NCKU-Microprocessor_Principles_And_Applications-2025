@@ -1,0 +1,74 @@
+LIST P=18F4520
+#include <p18f4520.inc>
+CONFIG OSC = INTIO67
+CONFIG WDT = OFF
+ORG 0x0000
+
+OP1         EQU 0x20
+OP2         EQU 0x21
+SIGNFLAG    EQU 0x22
+RESULT      EQU 0x23
+TEMP        EQU 0x24
+SHIFT       EQU 0x25
+MASK        EQU 0x26
+
+;測資
+MOVLW 0xFE
+MOVWF 0x000  
+MOVLW 0xFC
+MOVWF 0x001  
+
+; --------  OP1 OP2 --------
+MOVF 0x000, W
+MOVWF OP1
+MOVF 0x001, W
+MOVWF OP2
+; -------- OP1正負處理 --------
+BTFSS 0x000,7 ;如果OP1的bit7是1則跳過GOTO CHECK_OP2，OP1轉成正
+GOTO CHECK_OP2
+COMF OP1,F      ; W = NOT(OP1) 一補數 
+INCF OP1,F        ; 二補數
+BSF SIGNFLAG,0   ; 紀錄OP1是負
+
+; -------- OP2正負處理 --------
+CHECK_OP2:
+BTFSS 0x001,7
+GOTO MUL
+COMF OP2,F
+INCF OP2,F
+BTG SIGNFLAG,0 ;做XOR如果同號 SIGNFLAG的bit0設成0異號就設成1 
+
+; -------- 乘法(shift-add) --------
+MUL:
+MOVF OP1,W
+MOVWF SHIFT ;OP1放到SHIFT
+MOVLW 0x01
+MOVWF MASK 
+MOVLW 0x04
+MOVWF TEMP ;計數器
+
+MUL_LOOP:
+MOVF OP2,W
+ANDWF MASK,W ;檢查bit0
+BZ SKIP_ADD ;bit0是0則跳過加法
+MOVF SHIFT,W ;shift是OP1
+ADDWF RESULT,F ;OP1累加到RESULT
+SKIP_ADD:
+RLNCF SHIFT,F ;shift左移一格
+RLNCF MASK,F ;MASK左移，檢查OP2下一個bit
+DECF TEMP,F
+BNZ MUL_LOOP ;計數器不為0則繼續迴圈
+
+; -------- RESULT儲存 --------
+BTFSS SIGNFLAG,0 ;檢查SIGNFLAG的bit0是0還是1 0就執行下一行
+GOTO STORE
+COMF RESULT,F ;是1則取反
+INCF RESULT,F
+
+STORE:
+MOVF RESULT,W
+MOVWF 0x002
+
+END
+
+
