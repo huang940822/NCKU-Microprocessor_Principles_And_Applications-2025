@@ -1,0 +1,125 @@
+List p=18f4520
+    #include<p18f4520.inc>
+        CONFIG OSC = INTIO67
+        CONFIG WDT = OFF
+        org 0x00
+	
+	CLRF 0X020
+	CLRF 0X021
+	CLRF 0X022
+	CLRF 0X023
+	CLRF 0X024
+	CLRF 0X025
+	CLRF 0X028
+	CLRF 0X029
+	
+	MOVLW 0X30	    ; TESTCASE
+	MOVWF 0X020
+	MOVLW 0X21		    ; TESTCASE
+	MOVWF 0X021
+	MOVLW 0X26		    ; TESTCASE
+	MOVWF 0X022
+	MOVLW 0X5D	    ; TESTCASE
+	MOVWF 0X023
+	
+	
+	
+	RCALL newtonSqrt
+	MOVFF 0X022, 0X024
+	MOVFF 0X023, 0X025
+	GOTO ENDING
+	
+	newtonSqrt:
+	    MOVFF 0X020, 0X000
+	    MOVFF 0X021, 0X001
+	    MOVFF 0X022, 0X002
+	    MOVFF 0X023, 0X003	
+	    MOVFF 0X022, 0X028
+	    MOVFF 0X023, 0X029
+	    
+	    newtonLOOP:
+	    MOVFF 0X028, 0X022
+	    MOVFF 0X029, 0X023
+	    MOVFF 0X020, 0X000
+	    MOVFF 0X021, 0X001
+	    MOVFF 0X022, 0X002
+	    MOVFF 0X023, 0X003	
+	    RCALL division
+	    MOVFF 0x023, WREG
+	    ADDWF 0x011, WREG
+	    MOVWF 0X029
+	    MOVFF 0x022, WREG
+	    ADDWFC 0x010, WREG
+	    MOVWF 0x028
+	    BCF STATUS,C
+	    RRCF 0X028
+	    RRCF 0X029
+	    COMPARE_HIGH4BIT:
+	    MOVFF 0X028, WREG
+	    CPFSEQ 0X022
+	    GOTO newtonLOOP
+	    
+	    COMPARE_LOW4BIT:
+	    MOVFF 0X029, WREG
+	    CPFSEQ 0X023
+	    GOTO newtonLOOP
+	    RETURN
+	    
+	    
+	    
+	division:
+	    CLRF 0X010
+	    CLRF 0X011
+	    CLRF 0X012
+	    CLRF 0X013
+	    MOVLW 0x10
+	    MOVWF 0x004       ; Counter = 16
+
+	    MOVFF 0X000, 0X005
+	    MOVFF 0X001, 0X006
+	    CLRF 0x010       ; Quotient High
+	    CLRF 0x011       ; Quotient Low
+	    BCF STATUS, C
+	    
+	    LOOP:
+		RLCF 0X013
+		RLCF 0X012
+		BCF STATUS, C
+		RLCF 0X011
+		RLCF 0X010
+		
+		RLCF 0X006
+		RLCF 0X005
+		BTFSC STATUS, C
+		INCF 0X013
+		COMPARE_HIGH8BIT:
+		    MOVF 0X012, WREG			; ???8BIT
+		    CPFSGT 0X002
+		    GOTO COMPARE_LOW8BIT		; ???8BIT
+		    GOTO SKIP
+		COMPARE_LOW8BIT:
+		    CPFSEQ 0X002
+		    GOTO MINUS
+		    MOVF 0X013, WREG
+		    CPFSGT 0X003
+		    GOTO MINUS
+		    GOTO SKIP
+		MINUS:
+		    MOVF    0x003, WREG       ; W = B_L
+		    SUBWF   0x013       ; W = A_L - B_L
+		    MOVF    0x002, WREG       ; W = B_H
+		    SUBWFB  0x12       ; W = A_H - B_H - borrow
+		    MOVF 0X010, WREG
+		    INCF 0X011
+		    ADDWFC 0X010
+		    
+	    SKIP:
+	    DECFSZ 0X004
+	    GOTO LOOP
+	    RETURN
+	    
+	ENDING:
+	    
+	    END
+
+
